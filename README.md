@@ -6,6 +6,8 @@
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![C#](https://img.shields.io/badge/C%23-12-239120?logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-7-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![pgvector](https://img.shields.io/badge/pgvector-enabled-336791)](https://github.com/pgvector/pgvector)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
@@ -30,7 +32,7 @@
 | Layer            | Technology                                  |
 |------------------|---------------------------------------------|
 | Backend API      | ASP.NET Core 8, C# 12                       |
-| Frontend         | React 18, Vite                              |
+| Frontend         | React 18, Vite, TypeScript 5                |
 | Database         | PostgreSQL 16 + pgvector                    |
 | LLM / Embeddings | Ollama (`llama3`, `nomic-embed-text`)       |
 | Auth             | JWT (access + refresh)                      |

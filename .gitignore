@@ -28,6 +28,26 @@ coverage/
 *.coveragexml
 
 # -------------------------------------------------------------
+# Python
+# -------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg
+*.egg-info/
+.venv/
+venv/
+.python-version
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+
+# -------------------------------------------------------------
 # React / Node.js
 # -------------------------------------------------------------
 node_modules/

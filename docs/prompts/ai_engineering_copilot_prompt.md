@@ -9,7 +9,7 @@
 
 You are a senior software architect and AI platform engineer.
 
-Design a **production-quality AI Engineering Copilot** — a document intelligence platform built to demonstrate enterprise-grade engineering skills aligned with the following competencies: C# / .NET, ASP.NET Core Web API, advanced SQL and database optimization, React + JavaScript frontend, LLM/RAG integration, REST API design, Docker containerization, and full SDLC best practices.
+Design a **production-quality AI Engineering Copilot** — a document intelligence platform built to demonstrate enterprise-grade engineering skills aligned with the following competencies: C# / .NET, ASP.NET Core Web API, Python / FastAPI, advanced SQL and database optimization, Next.js + TypeScript frontend, LLM/RAG integration, REST API design between polyglot services, Docker containerization, and full SDLC best practices.
 
 ---
 
@@ -29,36 +29,46 @@ Users can:
 
 | Layer | Technology |
 |---|---|
-| **Backend** | ASP.NET Core 8 Web API, C#, Entity Framework Core |
-| **Database** | PostgreSQL + pgvector |
+| **API Gateway** | ASP.NET Core 8 Web API, C#, Entity Framework Core |
+| **ML Service** | Python 3.12, FastAPI, sentence-transformers / PyTorch, pgvector via `asyncpg` (or SQLAlchemy async) |
+| **Inter-service** | REST over HTTP (JSON) — rationale: simplicity, debuggability, adequacy at expected scale. Migration path to gRPC or OpenAPI codegen if needed. |
+| **Database** | PostgreSQL + pgvector (shared between gateway and ML service) |
 | **Auth** | JWT authentication |
-| **API Docs** | Swagger / OpenAPI |
-| **Frontend** | React, JavaScript (not TypeScript), Tailwind CSS |
-| **HTTP / Data Fetching** | Axios + TanStack Query |
-| **AI** | Ollama (local LLM + embedding model), RAG pipeline with pgvector |
-| **Resilience** | `Microsoft.Extensions.Http.Resilience` (HTTP), Polly (job pipeline) |
-| **Logging** | Serilog + Seq sink; OpenTelemetry for observability |
+| **API Docs** | Swagger / OpenAPI (gateway); FastAPI auto-docs (ML service) |
+| **Frontend** | Next.js, TypeScript, Tailwind CSS |
+| **HTTP / Data Fetching** | Native `fetch` + TanStack Query |
+| **AI** | Ollama (local LLM + embedding model) by default; pluggable to OpenAI / Anthropic via single provider interface. RAG pipeline with pgvector. |
+| **Resilience** | `Microsoft.Extensions.Http.Resilience` (gateway → ML, gateway → Ollama); `tenacity` (Python ML retries) |
+| **Logging** | Serilog (C#) + `structlog` (Python), JSON output; OpenTelemetry for cross-service tracing |
 | **DevOps** | Docker, Docker Compose |
-| **Testing** | xUnit, FluentAssertions |
+| **Testing** | xUnit + FluentAssertions (C#); pytest (Python); Playwright (E2E) |
 
 ---
 
 ## Architecture Requirements
 
-Follow clean architecture principles:
+Follow clean architecture principles in the C# gateway and idiomatic FastAPI module layout in the Python ML service:
 
-- Service / repository pattern
+- Service / repository pattern (gateway)
+- Clear pipeline stages (ML service: parse → chunk → embed → retrieve → rerank → generate)
 - Separation of concerns
 - Modular API structure
-- Scalable backend design
+- Scalable design with stateless ML service
 
 The system must include **five containers**:
 
-1. React frontend
-2. ASP.NET Core API
-3. PostgreSQL (with pgvector extension)
-4. Ollama AI service
-5. Background worker service
+1. `frontend` — Next.js (TypeScript)
+2. `api` — ASP.NET Core gateway
+3. `ml` — Python FastAPI ML service
+4. `postgres` — PostgreSQL + pgvector (shared)
+5. `ollama` — local LLM + embedding server (pluggable to OpenAI / Anthropic)
+
+### Service boundaries
+
+- The **C# gateway** is the system of record for all user, auth, and business state (users, documents, conversations, messages, audit logs, refresh tokens, rate-limit counters). It owns authentication, authorization, document metadata via EF Core, conversation history, request orchestration, audit logging, and rate limiting. Persists to PostgreSQL.
+- The **Python ML service** is **stateless** with respect to business data. It owns chunking, embedding generation, vector search, reranking, prompt construction, LLM inference, and the evaluation harness. Reads/writes only the `chunks` table (with the `embedding vector` column) and reads `documents` read-only.
+- **Inter-service communication is REST over HTTP (JSON)**, chosen for operational simplicity, debuggability, and adequacy at expected scale. Migration path: gRPC or OpenAPI codegen if throughput or contract enforcement become bottlenecks.
+- Neither service knows about the other's domain. The shared PostgreSQL database is the only place their concerns meet.
 
 ---
 
@@ -227,7 +237,7 @@ Generate the following as a senior engineering planning document. Provide implem
 6. **pgvector indexing and query optimization recommendations** (IVFFlat vs HNSW, index tuning)
 7. **RAG pipeline step-by-step design** (each stage with implementation notes)
 8. **Docker Compose architecture** (full `docker-compose.yml` structure with annotations)
-9. **Phased development roadmap** (Phase 1: MVP → Phase 2: AI features → Phase 3: Admin + polish)
+9. **Phased development roadmap** — 60-day plan: Weeks 1–2 Python ML core, Weeks 3–4 ASP.NET gateway, Weeks 5–6 Next.js frontend, Weeks 7–8 evaluation harness + production hardening, Weeks 9–10 buffer/polish. See `docs/prompts/60_day_roadmap.md`.
 10. **GitHub README outline** (sections, badges, setup instructions, architecture overview)
 11. **Resume bullet points** targeting enterprise AI/backend engineering roles (C#, SQL, RAG, LLM, Docker, Web API)
 12. **Suggested future enhancements** (MongoDB/NoSQL integration, multi-tenancy, real-time streaming LLM responses, fine-tuning pipeline, VSTO integration)

@@ -1,0 +1,21 @@
+"""Smoke tests for the liveness endpoint."""
+
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+
+from app import __version__
+from app.main import app
+
+client = TestClient(app)
+
+
+def test_healthz_returns_200() -> None:
+    response = client.get("/healthz")
+    assert response.status_code == 200
+
+
+def test_healthz_payload_shape() -> None:
+    response = client.get("/healthz")
+    body = response.json()
+    assert body == {"status": "ok", "service": "ml", "version": __version__}

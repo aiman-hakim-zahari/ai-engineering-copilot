@@ -1,11 +1,16 @@
 # syntax=docker/dockerfile:1.7
 
-FROM python:3.12-slim AS runtime
+# Official uv image with Python 3.12 preinstalled.
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    # uv: write bytecode at install time, copy instead of hardlink
+    # (hardlinks break across mounted volumes).
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    # Make the project's venv discoverable on PATH for CMD.
+    PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
 
@@ -14,16 +19,16 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install runtime dependencies first so this layer is cached
-# until pyproject.toml changes.
-COPY pyproject.toml ./
-RUN pip install --upgrade pip \
-    && pip install \
-        "fastapi>=0.115,<0.116" \
-        "uvicorn[standard]>=0.32,<0.33" \
-        "pydantic>=2.9,<3.0"
+# Install only runtime dependencies first. This layer is cached
+# until pyproject.toml or uv.lock changes.
+#
+# Requires `uv.lock` to be checked in. Generate it locally with:
+#   cd src/ml && uv sync
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project --no-dev
 
-# Now copy the application.
+# Now copy the application code.
 COPY app ./app
 
 EXPOSE 8001

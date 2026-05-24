@@ -18,16 +18,18 @@ rerank, answer, and evaluate land over Weeks 1–2 per
 
 ## Local development
 
-Requires Python 3.12+.
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/) as the
+dependency manager.
 
 ```bash
-cd src/ml
-python -m venv .venv
-# Windows:    .venv\Scripts\activate
-# macOS/Linux: source .venv/bin/activate
+# Install uv once (any of):
+#   curl -LsSf https://astral.sh/uv/install.sh | sh   # macOS / Linux
+#   winget install --id=astral-sh.uv                  # Windows
+#   pipx install uv
 
-pip install -e ".[dev]"
-uvicorn app.main:app --reload --port 8001
+cd src/ml
+uv sync           # creates .venv/, installs runtime + dev groups, generates uv.lock
+uv run uvicorn app.main:app --reload --port 8001
 ```
 
 Then:
@@ -39,20 +41,27 @@ curl http://localhost:8001/healthz
 
 Interactive docs at <http://localhost:8001/docs>.
 
+> **First-time setup note.** `uv sync` will generate `uv.lock` if it
+> doesn't exist. Commit the lock file so Docker builds and CI use
+> identical pinned versions.
+
 ## Tests
 
 ```bash
-pytest
+uv run pytest
 ```
 
 ## Lint
 
 ```bash
-ruff check .
-ruff format .
+uv run ruff check .
+uv run ruff format .
 ```
 
 ## Docker
+
+The Dockerfile uses `uv sync --frozen`, so `uv.lock` **must** be
+checked in before building.
 
 ```bash
 docker build -t copilot-ml .

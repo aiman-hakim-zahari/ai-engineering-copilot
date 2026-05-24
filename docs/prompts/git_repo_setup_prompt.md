@@ -9,7 +9,7 @@
 
 You are a senior software engineer setting up a professional GitHub repository for a portfolio project.
 
-The project is an **AI Engineering Copilot** — a full-stack document intelligence platform built with ASP.NET Core 8, React, PostgreSQL, pgvector, and Ollama.
+The project is an **AI Engineering Copilot** — a dual-language microservice document intelligence platform built with Next.js (TypeScript) frontend, an ASP.NET Core 8 (C#) API gateway, a Python FastAPI ML service, PostgreSQL + pgvector, and Ollama (pluggable to OpenAI / Anthropic).
 
 Set up the Git repository from scratch following enterprise SDLC best practices. The repository must be ready for development immediately after setup, with no placeholder files and no loose ends.
 
@@ -21,7 +21,7 @@ Set up the Git repository from scratch following enterprise SDLC best practices.
 |---|---|
 | **Repo name** | `ai-engineering-copilot` |
 | **Visibility** | Public (portfolio) |
-| **Primary language** | C# (backend), JavaScript (frontend) |
+| **Primary languages** | C# (gateway), Python (ML service), TypeScript (frontend) |
 | **License** | MIT |
 
 ---
@@ -43,14 +43,16 @@ Generate the following structure before any code is written:
 ```
 ai-engineering-copilot/
 ├── src/
-│   ├── backend/                  # ASP.NET Core solution
-│   └── frontend/                 # React application
+│   ├── api/                      # ASP.NET Core gateway (C#)
+│   ├── ml/                       # Python FastAPI ML service
+│   └── frontend/                 # Next.js application (TypeScript)
 ├── tests/
-│   ├── unit/                     # xUnit unit tests
-│   └── integration/              # xUnit integration tests
+│   ├── unit/                     # xUnit (C#) + pytest (Python) unit tests
+│   ├── ml/                       # Python ML pipeline tests + fixtures
+│   └── integration/              # cross-service integration tests
 ├── docs/
 │   ├── architecture.md           # Architecture decisions and diagrams
-│   ├── api-spec.md               # REST API endpoint reference
+│   ├── api-spec.md               # REST API endpoint reference (gateway + ML)
 │   ├── rag-pipeline.md           # RAG pipeline design notes
 │   └── database-schema.md        # SQL schema documentation
 ├── scripts/
@@ -62,7 +64,7 @@ ai-engineering-copilot/
 │   │   ├── bug_report.md
 │   │   └── feature_request.md
 │   └── PULL_REQUEST_TEMPLATE.md
-├── docker-compose.yml            # Full local stack
+├── docker-compose.yml            # Full local stack (5 services)
 ├── docker-compose.override.yml   # Dev overrides (hot reload, debug ports)
 ├── .env.example                  # Environment variable template
 ├── .gitignore
@@ -76,7 +78,8 @@ ai-engineering-copilot/
 Combine rules for:
 
 - **C# / .NET:** `bin/`, `obj/`, `*.user`, `*.suo`, `.vs/`, `appsettings.Development.json`
-- **React / Node:** `node_modules/`, `dist/`, `.env.local`, `.env.*.local`, `npm-debug.log*`
+- **Python:** `__pycache__/`, `*.pyc`, `*.pyo`, `.venv/`, `.pytest_cache/`, `.ruff_cache/`, `.mypy_cache/`, `*.egg-info/`
+- **Next.js / Node:** `node_modules/`, `.next/`, `dist/`, `out/`, `.env.local`, `.env.*.local`, `npm-debug.log*`
 - **Docker:** `.docker/`
 - **IDE:** `.idea/`, `.vscode/` (keep `.vscode/extensions.json` and `.vscode/settings.json` for team consistency)
 - **OS:** `.DS_Store`, `Thumbs.db`
@@ -85,7 +88,7 @@ Combine rules for:
 
 ### 4. Create `.editorconfig`
 
-Enforce consistent formatting across C# and JavaScript:
+Enforce consistent formatting across C#, Python, and TypeScript:
 
 ```ini
 root = true
@@ -100,6 +103,9 @@ insert_final_newline = true
 [*.cs]
 indent_size = 4
 
+[*.py]
+indent_size = 4
+
 [*.{js,jsx,json,ts,tsx}]
 indent_size = 2
 
@@ -112,31 +118,37 @@ trim_trailing_whitespace = false
 Document every required environment variable. **Never commit real values.**
 
 ```env
-# PostgreSQL
-POSTGRES_HOST=localhost
+# PostgreSQL (shared by gateway and ML service)
+POSTGRES_HOST=postgres
 POSTGRES_PORT=5432
 POSTGRES_DB=ai_copilot
 POSTGRES_USER=your_db_user
 POSTGRES_PASSWORD=your_db_password
 
-# ASP.NET Core
+# ASP.NET Core gateway
 ASPNETCORE_ENVIRONMENT=Development
 JWT_SECRET=your_jwt_secret_minimum_32_characters
 JWT_ISSUER=ai-engineering-copilot
 JWT_AUDIENCE=ai-engineering-copilot-client
 JWT_EXPIRY_MINUTES=60
-
-# Ollama
-OLLAMA_BASE_URL=http://ollama:11434
-OLLAMA_EMBEDDING_MODEL=nomic-embed-text
-OLLAMA_CHAT_MODEL=llama3
-
-# Backend API
 API_PORT=5000
 ALLOWED_ORIGINS=http://localhost:3000
 
-# Frontend
-VITE_API_BASE_URL=http://localhost:5000
+# Python ML service
+ML_SERVICE_PORT=8001
+ML_SERVICE_URL=http://ml:8001
+ML_INTERNAL_TOKEN=your_shared_internal_service_token
+
+# LLM provider (Ollama default; cloud keys optional)
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://ollama:11434
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+OLLAMA_CHAT_MODEL=llama3
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+
+# Frontend (Next.js)
+NEXT_PUBLIC_API_BASE_URL=http://localhost:5000
 ```
 
 ### 6. Create `docker-compose.yml` Skeleton
@@ -177,18 +189,37 @@ services:
       timeout: 10s
       retries: 5
 
-  backend:
+  ml:
     build:
-      context: ./src/backend
+      context: ./src/ml
       dockerfile: Dockerfile
-    container_name: copilot_backend
+    container_name: copilot_ml
+    env_file: .env
+    ports:
+      - "${ML_SERVICE_PORT}:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/healthz"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  api:
+    build:
+      context: ./src/api
+      dockerfile: Dockerfile
+    container_name: copilot_api
     env_file: .env
     ports:
       - "${API_PORT}:8080"
     depends_on:
       postgres:
         condition: service_healthy
-      ollama:
+      ml:
         condition: service_healthy
     volumes:
       - uploads:/app/uploads
@@ -200,9 +231,9 @@ services:
     container_name: copilot_frontend
     env_file: .env
     ports:
-      - "3000:80"
+      - "3000:3000"
     depends_on:
-      - backend
+      - api
 
 volumes:
   postgres_data:
@@ -221,7 +252,7 @@ The README must be portfolio-quality. Include:
 > ask questions, and receive contextual answers with source citations.
 
 ## Tech Stack
-[badges for C#, .NET 8, React, PostgreSQL, Docker, Ollama]
+[badges for .NET 8, C#, Next.js, TypeScript, Python, FastAPI, PostgreSQL, Docker, Ollama]
 
 ## Features
 - Document upload and parsing (PDF, DOCX, TXT)
@@ -229,9 +260,17 @@ The README must be portfolio-quality. Include:
 - Semantic + hybrid search via pgvector
 - JWT authentication with role-based access
 - Admin dashboard with processing metrics
-- Fully containerized with Docker Compose
+- Fully containerized with Docker Compose (5 services)
 
 ## Architecture
+Dual-language microservice architecture:
+- **Frontend (Next.js + TypeScript)** — chat UI, document upload, auth pages.
+- **API Gateway (ASP.NET Core, C#)** — auth, RBAC, document metadata via EF Core, conversation history, orchestration, audit, rate limiting. Persists to PostgreSQL.
+- **ML Service (Python + FastAPI)** — chunking, embedding, vector search, reranking, prompt construction, LLM inference, evaluation. Reads/writes pgvector.
+- **Inter-service:** REST over HTTP (JSON). Rationale: simplicity, debuggability, adequacy at expected scale. Migration path: gRPC or OpenAPI codegen.
+- **Data layer:** PostgreSQL + pgvector (shared).
+- **LLM backend:** Ollama local (default); pluggable to OpenAI / Anthropic.
+
 [link to docs/architecture.md]
 
 ## Quick Start
@@ -253,11 +292,13 @@ docker compose up --build
 [folder tree]
 
 ## Development Roadmap
+60-day plan — see docs/prompts/60_day_roadmap.md.
 - [x] Phase 0: Repository setup
-- [ ] Phase 1: Auth + document upload
-- [ ] Phase 2: AI processing pipeline + RAG
-- [ ] Phase 3: Chat interface + semantic search
-- [ ] Phase 4: Admin dashboard + observability
+- [ ] Weeks 1–2: Python ML service end-to-end
+- [ ] Weeks 3–4: ASP.NET Core gateway
+- [ ] Weeks 5–6: Next.js chat UI
+- [ ] Weeks 7–8: Evaluation harness + production hardening
+- [ ] Weeks 9–10 (buffer): Docker Compose, README, demo
 
 ## License
 MIT
@@ -358,11 +399,11 @@ main          ← always deployable, protected
 git add .
 git commit -m "chore: initialize repository structure
 
-- Add top-level folder structure (src, tests, docs, scripts)
-- Add .gitignore for C#, React, Docker, and OS artifacts
-- Add .editorconfig for consistent formatting
+- Add top-level folder structure (src/api, src/ml, src/frontend, tests, docs, scripts)
+- Add .gitignore for C#, Python, Next.js / Node, Docker, and OS artifacts
+- Add .editorconfig for consistent formatting (C#, Python, TypeScript)
 - Add .env.example with all required environment variables
-- Add docker-compose.yml skeleton with health checks
+- Add docker-compose.yml skeleton with 5 services and health checks
 - Add README.md with project overview and quick start
 - Add GitHub issue and PR templates
 - Add MIT license"

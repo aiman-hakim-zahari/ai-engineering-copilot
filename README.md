@@ -33,9 +33,9 @@
 | Layer                       | Technology                                                                   |
 |-----------------------------|------------------------------------------------------------------------------|
 | Frontend                    | Next.js 15, TypeScript 5                                                     |
-| API Gateway                 | ASP.NET Core 8, C# 12, Entity Framework Core                                 |
+| Application Backend         | ASP.NET Core 8, C# 12, Entity Framework Core                                 |
 | ML Service                  | Python 3.12, FastAPI, sentence-transformers / PyTorch                        |
-| Database                    | PostgreSQL 16 + pgvector (shared between gateway and ML service)             |
+| Database                    | PostgreSQL 16 + pgvector (shared between the application backend and ML service) |
 | LLM / Embeddings            | Ollama local (`llama3`, `nomic-embed-text`); pluggable to OpenAI / Anthropic |
 | Inter-service communication | REST over HTTP (JSON)                                                        |
 | Auth                        | JWT (access + refresh)                                                       |
@@ -51,9 +51,10 @@ See [docs/architecture.md](docs/architecture.md) for system design, data flow, a
 ```
 ┌────────────┐  HTTPS   ┌─────────────────┐   SQL    ┌──────────────┐
 │  Next.js   │ ───────▶ │  ASP.NET Core   │ ───────▶ │  PostgreSQL  │
-│  Frontend  │          │   API Gateway   │          │  + pgvector  │
-└────────────┘          │ (auth, docs,    │          └──────▲───────┘
-                        │  conversations, │                 │ SQL
+│  Frontend  │          │   Application   │          │  + pgvector  │
+└────────────┘          │     Backend     │          └──────▲───────┘
+                        │ (auth, docs,    │                 │ SQL
+                        │  conversations, │                 │
                         │  audit, RBAC)   │                 │
                         └────────┬────────┘          ┌──────┴───────┐
                                  │ REST / JSON       │   Python     │
@@ -75,10 +76,10 @@ See [docs/architecture.md](docs/architecture.md) for system design, data flow, a
                         └─────────────────┘
 ```
 
-**Key principle:** the C# gateway is the system of record for all user, auth,
-and business state. The Python ML service is stateless and only performs ML
-work (chunking, embedding, retrieval, reranking, generation). Neither service
-knows about the other's domain.
+**Key principle:** the C# application backend is the system of record for all
+user, auth, and business state. The Python ML service is stateless and only
+performs ML work (chunking, embedding, retrieval, reranking, generation).
+Neither service knows about the other's domain.
 
 ---
 
@@ -103,7 +104,7 @@ docker compose up --build
 Once everything is healthy:
 
 - Frontend: <http://localhost:3000>
-- API Gateway: <http://localhost:5000>
+- Application Backend: <http://localhost:5000>
 - Swagger docs: <http://localhost:5000/swagger>
 - ML Service (internal): <http://localhost:8001>
 - ML Service docs: <http://localhost:8001/docs>
@@ -128,7 +129,7 @@ See [docs/api-spec.md](docs/api-spec.md) for the full REST endpoint reference, r
 ```
 ai-engineering-copilot/
 ├── src/
-│   ├── api/            # ASP.NET Core gateway (auth, EF Core, orchestration)
+│   ├── api/            # ASP.NET Core application backend (auth, EF Core, orchestration)
 │   ├── ml/             # Python FastAPI service (RAG pipeline)
 │   └── frontend/       # Next.js application
 ├── tests/
@@ -151,7 +152,7 @@ ai-engineering-copilot/
 
 - [x] **Phase 0** — Repository setup
 - [ ] **Weeks 1–2** — Python ML service end-to-end (ingest → chunk → embed → retrieve → answer; validated with curl/Postman)
-- [ ] **Weeks 3–4** — ASP.NET Core gateway (JWT, EF Core users/conversations, HttpClient to ML, Swagger)
+- [ ] **Weeks 3–4** — ASP.NET Core application backend (JWT, EF Core users/conversations, HttpClient to ML, Swagger)
 - [ ] **Weeks 5–6** — Next.js chat UI (streaming responses, document upload, source citations)
 - [ ] **Weeks 7–8** — Evaluation harness (`/evaluate`, recall@k, MRR, faithfulness) + production hardening (Serilog + structlog, Prometheus, tracing, rate limiting)
 - [ ] **Weeks 9–10 (buffer)** — Docker Compose finalization, README with architecture diagram, blog post, demo video, "what I'd do at scale" notes

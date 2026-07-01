@@ -5,7 +5,7 @@
 > actually built today.
 >
 > **Goal:** Build the AI Engineering Copilot project with consistent daily commits across 60 days.
-> **Target outcome:** A production-quality portfolio project ready for the Intel AI Software Development Engineer application.
+> **Target outcome:** A production-quality portfolio project ready to share with recruiters and engineering teams.
 
 ---
 
@@ -271,4 +271,4 @@ At the end of each week, do a self-review:
 - [ ] GitHub Actions CI passes on `main`
 - [ ] `/evaluate` reports baseline retrieval and faithfulness metrics
 - [ ] Resume bullet points written and saved
-- [ ] Ready to link in your Intel application
+- [ ] Ready to link in portfolio, resume, and applications

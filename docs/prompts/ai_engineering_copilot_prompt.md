@@ -1,6 +1,11 @@
 # AI Engineering Copilot — Project Planning Prompt
 
 > **Target Role:** AI Software Development Engineer (Intel, Penang — JR0283812)
+> **Archive note:** This is an older ambitious planning prompt. It may mention
+> auth, pgvector, Ollama, observability, and other features that are not
+> implemented. The current scope is the simplified vertical slice in the root
+> `README.md`.
+>
 > **Purpose:** Portfolio project demonstrating enterprise-grade AI/backend engineering skills
 
 ---

@@ -1,5 +1,9 @@
 # 60-Day Development Roadmap — AI Engineering Copilot
 
+> **Archive note:** This roadmap is historical planning material. It does not
+> describe the current implementation. See the root `README.md` for what is
+> actually built today.
+>
 > **Goal:** Build the AI Engineering Copilot project with consistent daily commits across 60 days.
 > **Target outcome:** A production-quality portfolio project ready for the Intel AI Software Development Engineer application.
 

@@ -1,96 +1,88 @@
 # API Specification
 
-The system exposes two API surfaces:
-
-- **Gateway API** (public) — ASP.NET Core, called by the frontend.
-- **ML Service API** (internal) — Python FastAPI, called only by the gateway.
-
-The frontend never calls the ML service directly. All authentication, authorization, and persistence happen in the gateway.
-
----
+The frontend calls the ASP.NET Core gateway only. The gateway calls the FastAPI
+ML service over HTTP.
 
 ## Gateway API
 
-Base URL: `http://localhost:5000`
-Auth: Bearer JWT (issued by `POST /auth/login`)
+Base URL for local development: `http://localhost:5000`
 
-Endpoints are documented here in addition to the live OpenAPI spec at `/swagger`.
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/health` | Gateway liveness |
+| POST | `/documents` | Accept JSON text or multipart `.txt` / `.md`, then forward to ML `/ingest` |
+| POST | `/chat` | Accept a question, then forward to ML `/answer` |
 
-### Auth
+Swagger is available at `/swagger`.
 
-| Method | Path             | Description                              |
-|--------|------------------|------------------------------------------|
-| POST   | `/auth/register` | Create a new user account                |
-| POST   | `/auth/login`    | Exchange credentials for a JWT pair      |
-| POST   | `/auth/refresh`  | Rotate an access token via refresh token |
+### `POST /documents`
 
-### Documents
+JSON request:
 
-| Method | Path                    | Description                                  |
-|--------|-------------------------|----------------------------------------------|
-| POST   | `/documents`            | Upload a document (multipart/form-data)      |
-| GET    | `/documents`            | List user's documents                        |
-| GET    | `/documents/{id}`       | Get document metadata + processing status    |
-| DELETE | `/documents/{id}`       | Soft-delete a document and its embeddings    |
+```json
+{
+  "source": "demo.md",
+  "text": "The gateway is ASP.NET Core."
+}
+```
 
-Document uploads are persisted by the gateway, then forwarded to the ML service for chunking and embedding via `POST /ingest` (see below).
+Response:
 
-### Conversations / Chat
+```json
+{
+  "document_id": "uuid",
+  "chunks_indexed": 1,
+  "sources": ["demo.md"]
+}
+```
 
-| Method | Path                            | Description                                                          |
-|--------|---------------------------------|----------------------------------------------------------------------|
-| POST   | `/conversations`                | Create a new conversation                                            |
-| GET    | `/conversations`                | List user's conversations                                            |
-| GET    | `/conversations/{id}/messages`  | Get messages for a conversation                                      |
-| POST   | `/chat`                         | Ask a question; gateway orchestrates ML call and streams back (SSE)  |
-| POST   | `/search`                       | Hybrid semantic + keyword search (delegates to ML `POST /retrieve`)  |
+Multipart form also works with `file`, optional `source`, and optional `text`.
 
-### Admin
+### `POST /chat`
 
-| Method | Path                    | Description                                  |
-|--------|-------------------------|----------------------------------------------|
-| GET    | `/admin/metrics`        | Ingestion + embedding throughput stats       |
-| GET    | `/admin/users`          | List users (role: admin)                     |
-| GET    | `/admin/audit-logs`     | Recent audit log entries                     |
+Request:
 
-Request and response schemas are defined alongside controllers and exposed via Swagger.
+```json
+{
+  "question": "What is the gateway built with?",
+  "topK": 4
+}
+```
 
----
+Response:
 
-## ML Service API (internal)
+```json
+{
+  "answer": "Based on the matching document context: ...",
+  "sources": [
+    {
+      "source": "demo.md",
+      "chunk_id": "abcd1234-1",
+      "score": 2.4
+    }
+  ],
+  "matched_chunks": [
+    {
+      "source": "demo.md",
+      "chunk_id": "abcd1234-1",
+      "score": 2.4,
+      "text": "The gateway is ASP.NET Core."
+    }
+  ]
+}
+```
 
-Base URL: `http://ml:8001` (inside Docker network) / `http://localhost:8001` (host)
-Auth: shared service token via `X-Internal-Token` header (not user JWT).
-Docs: FastAPI auto-generated at `/docs` and `/redoc`.
+## ML Service API
 
-The ML service is **stateless** with respect to user/business data. It reads document chunks and writes embeddings into the shared PostgreSQL database, but it does not know about users, auth, conversations, or audit logs.
+Base URL for local development: `http://localhost:8001`
 
-### Pipeline endpoints
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/healthz` | ML service liveness |
+| POST | `/ingest` | Chunk and store text in memory |
+| POST | `/answer` | Retrieve matching chunks and return answer + sources |
 
-| Method | Path        | Description                                                                                          |
-|--------|-------------|------------------------------------------------------------------------------------------------------|
-| POST   | `/ingest`   | Accept a `document_id` + raw text; chunk, embed, write to `chunks`                                   |
-| POST   | `/embed`    | Embed an arbitrary text payload, return the vector (used for ad-hoc retrieval and tests)             |
-| POST   | `/retrieve` | Given a query + `document_set_id`, return top-k chunks (vector + lexical fusion)                     |
-| POST   | `/rerank`   | Given a query + candidate chunks, return a reranked list with scores                                 |
-| POST   | `/answer`   | End-to-end: embed → retrieve → rerank → construct prompt → call LLM → return `{ answer, sources[], metrics }` |
+FastAPI docs are available at `/docs`.
 
-### Evaluation & ops
-
-| Method | Path         | Description                                                                                  |
-|--------|--------------|----------------------------------------------------------------------------------------------|
-| POST   | `/evaluate`  | Run the golden Q/A dataset; return recall@k, MRR, faithfulness                               |
-| GET    | `/healthz`   | Liveness probe                                                                               |
-| GET    | `/readyz`    | Readiness probe (checks Postgres + Ollama connectivity)                                      |
-| GET    | `/metrics`   | Prometheus scrape endpoint                                                                   |
-
----
-
-## Inter-service Contract
-
-- **Transport:** REST over HTTP, content type `application/json`.
-- **Rationale:** chosen for operational simplicity, debuggability, and adequacy at expected scale. See [architecture.md](architecture.md#inter-service-contract) for the migration path to gRPC or OpenAPI codegen.
-- **Idempotency:** `/ingest` is idempotent on `(document_id, chunk_index)`; safe to retry.
-- **Correlation:** the gateway forwards `X-Correlation-ID` on every ML call; the ML service echoes it back in responses and logs.
-- **Errors:** the ML service returns RFC 7807 problem details (`application/problem+json`). The gateway translates 5xx into a single user-facing error and surfaces the correlation ID for tracing.
-- **Timeouts:** gateway → ML default timeout is 60s; `/answer` may stream partial results.
+Authentication, streaming, `/retrieve`, `/rerank`, `/evaluate`, and metrics are
+not implemented in this slice.

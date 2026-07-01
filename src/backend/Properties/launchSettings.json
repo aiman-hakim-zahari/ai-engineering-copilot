@@ -14,9 +14,11 @@
       "dotnetRunMessages": true,
       "launchBrowser": true,
       "launchUrl": "swagger",
-      "applicationUrl": "http://localhost:5023",
+      "applicationUrl": "http://localhost:5000",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ML_SERVICE_BASE_URL": "http://localhost:8001",
+        "ALLOWED_ORIGINS": "http://localhost:3000"
       }
     },
     "https": {

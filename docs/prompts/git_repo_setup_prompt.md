@@ -1,5 +1,9 @@
 # Git Repository Setup — AI Engineering Copilot
 
+> **Archive note:** This is an older planning prompt, not the current
+> implementation contract. The implemented project is the simplified vertical
+> slice described in the root `README.md`.
+>
 > **Run this before writing any code.**
 > A clean repo structure signals professional engineering discipline to any hiring manager who browses your GitHub.
 

@@ -1,6 +1,23 @@
-@backend_HostAddress = http://localhost:5023
+@backend_HostAddress = http://localhost:5000
 
-GET {{backend_HostAddress}}/weatherforecast/
+GET {{backend_HostAddress}}/health
 Accept: application/json
 
 ###
+
+POST {{backend_HostAddress}}/documents
+Content-Type: application/json
+
+{
+  "source": "demo.md",
+  "text": "The AI Engineering Copilot uses Next.js, ASP.NET Core, and FastAPI."
+}
+
+###
+
+POST {{backend_HostAddress}}/chat
+Content-Type: application/json
+
+{
+  "question": "What services does the demo use?"
+}

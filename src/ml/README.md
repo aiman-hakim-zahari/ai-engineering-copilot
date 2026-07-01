@@ -1,49 +1,26 @@
 # ML Service
 
-Python FastAPI service owning the RAG pipeline for the AI Engineering Copilot.
+Python FastAPI service for the demo RAG slice.
 
-This service is **stateless** with respect to business data. The C# application
-backend orchestrates calls to it over REST; the only persistence boundary it
-touches is the shared `chunks` table (with the `embedding vector` column) in
-PostgreSQL.
+It accepts raw document text, chunks it into small in-memory passages, retrieves
+matching chunks with lightweight keyword scoring, and returns an answer with
+source chunks. It works without PostgreSQL, pgvector, Ollama, or paid API keys.
 
-See [`docs/architecture.md`](../../docs/architecture.md) for the full service
-map and [`docs/api-spec.md`](../../docs/api-spec.md) for endpoint shapes.
+## Endpoints
 
-## Status
+- `GET /healthz`
+- `POST /ingest`
+- `POST /answer`
 
-Day 1 scaffold — FastAPI app and `/healthz` only. Ingest, embed, retrieve,
-rerank, answer, and evaluate land over Weeks 1–2 per
-[`docs/prompts/60_day_roadmap.md`](../../docs/prompts/60_day_roadmap.md).
+FastAPI docs are available at <http://localhost:8001/docs>.
 
 ## Local development
 
-Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/) as the
-dependency manager.
-
 ```bash
-# Install uv once (any of):
-#   curl -LsSf https://astral.sh/uv/install.sh | sh   # macOS / Linux
-#   winget install --id=astral-sh.uv                  # Windows
-#   pipx install uv
-
 cd src/ml
-uv sync           # creates .venv/, installs runtime + dev groups, generates uv.lock
+uv sync
 uv run uvicorn app.main:app --reload --port 8001
 ```
-
-Then:
-
-```bash
-curl http://localhost:8001/healthz
-# {"status":"ok","service":"ml","version":"0.1.0"}
-```
-
-Interactive docs at <http://localhost:8001/docs>.
-
-> **First-time setup note.** `uv sync` will generate `uv.lock` if it
-> doesn't exist. Commit the lock file so Docker builds and CI use
-> identical pinned versions.
 
 ## Tests
 
@@ -51,23 +28,8 @@ Interactive docs at <http://localhost:8001/docs>.
 uv run pytest
 ```
 
-## Lint
+## Optional Ollama
 
-```bash
-uv run ruff check .
-uv run ruff format .
-```
-
-## Docker
-
-The Dockerfile uses `uv sync --frozen`, so `uv.lock` **must** be
-checked in before building.
-
-```bash
-docker build -t copilot-ml .
-docker run --rm -p 8001:8001 copilot-ml
-```
-
-The container's `HEALTHCHECK` polls `/healthz` and is what
-`docker-compose` keys on for the `ml` service's `service_healthy`
-condition.
+Set `OLLAMA_BASE_URL` and `OLLAMA_CHAT_MODEL` to let `/answer` try local Ollama
+generation. If Ollama is missing or times out, the service automatically falls
+back to extractive answers from matched chunks.
